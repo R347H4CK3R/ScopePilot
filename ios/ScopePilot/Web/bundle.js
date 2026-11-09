@@ -8,7 +8,7 @@ function validateProgram(p, now=new Date()) {
  try {const u=new URL(p.policy);if(u.protocol!=='https:'||u.username||u.password)throw 0;}catch{errors.push('Provide an HTTPS program policy URL.');}
  if(!Array.isArray(p.hosts)||!p.hosts.length||p.hosts.length>100||p.hosts.some(h=>typeof h!=='string'||!hostPattern.test(h)))errors.push('Enter valid exact hosts or *.domain.tld scope entries.');
  if(!Array.isArray(p.excluded)||p.excluded.some(h=>typeof h!=='string'||!hostPattern.test(h)))errors.push('Exclusions must be valid hosts.');
- if(!/^\d{4}-\d{2}-\d{2}$/.test(p.expires)||!Number.isFinite(Date.parse(p.expires))||new Date(p.expires)<=now)errors.push('Set a future authorization expiry date.');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(p.expires)||!Number.isFinite(Date.parse(p.expires))||new Date(p.expires).toISOString().slice(0,10)!==p.expires||new Date(p.expires)<=now)errors.push('Set a future authorization expiry date.');
  if(p.authorized!==true) errors.push('Review the current program policy and confirm your authorization.');
  return errors;
 }
@@ -17,7 +17,7 @@ function inScope(target,p){
  if(validateProgram(p).length) return false;
  try{const u=new URL(target);return u.protocol==='https:'&&!u.port&&!u.username&&!u.password&&!u.search&&!u.hash&&p.hosts.some(h=>matches(u.hostname,h))&&!p.excluded.some(h=>matches(u.hostname,h));}catch{return false;}
 }
-function redact(value){return String(value).replace(/^(authorization|proxy-authorization|cookie|set-cookie|x-api-key)\s*:.*$/gim,'$1: [REDACTED]');}
+function redact(value){return String(value).replace(/^[ \t]*(authorization|proxy-authorization|cookie|set-cookie|x-api-key)\s*:.*$/gim,'$1: [REDACTED]');}
 function analyze(url,headers,p){
  if(!inScope(url,p))throw new Error('Authorization missing, expired, or target outside approved scope. HTTPS on port 443 only; remove query strings and credentials.');
  if(typeof headers!=='string'||headers.length>64000||!/^HTTP\/(?:1\.[01]|2|3)\s+[1-5]\d\d(?:\s|$)/.test(headers))throw new Error('Paste response headers beginning with a valid HTTP status line.');

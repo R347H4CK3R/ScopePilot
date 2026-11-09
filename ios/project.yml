@@ -17,7 +17,6 @@ targets:
     sources:
       - path: ScopePilot
         excludes: [Web]
-    resources:
       - path: ScopePilot/Web
         type: folder
     settings:
