@@ -9,9 +9,10 @@ Your best security research deserves a focused workspace.
 
 ScopePilot brings program scope, response evidence, and report preparation together in a calm, beautifully organized mobile app. Track the programs you are authorized to research. Record exclusions and expiry dates. Inspect supplied HTTP response headers locally, then turn your observations into a draft you can review and share.
 
+- Discover public community-listed HackerOne and Bugcrowd programs, then verify the official policy and scope.
 - Keep official policies and scope close at hand.
 - Import program records without silently inheriting testing permissions.
-- Get clear, informational header observations, not exaggerated bug claims.
+- Get evidence-led cookie, CORS, cache, CSP, and HSTS observations with explicit limitations and validation guidance.
 - Redact common credential headers before saving.
 - Maintain a local draft history and export using your device's share sheet.
 - Work with the same focused interface on Android and iPhone.

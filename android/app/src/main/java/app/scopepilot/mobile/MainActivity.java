@@ -28,6 +28,7 @@ public final class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return true; }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 String url=request.getUrl().toString();
+                if ("GET".equals(request.getMethod()) && (url.equals("https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/hackerone_data.json") || url.equals("https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/bugcrowd_data.json"))) return null;
                 if (url.startsWith(ORIGIN)) {
                     String path=url.substring(ORIGIN.length());
                     if (path.equals("index.html") || path.equals("style.css") || path.equals("bundle.js")) {
@@ -56,7 +57,7 @@ public final class MainActivity extends Activity {
         super.onActivityResult(request,result,data);
         if(request==41&&fileCallback!=null){fileCallback.onReceiveValue(result==RESULT_OK&&data!=null&&data.getData()!=null?new Uri[]{data.getData()}:null);fileCallback=null;}
     }
-    private final class Bridge {
+    public final class Bridge {
         @JavascriptInterface public void openExternal(String raw) {
             runOnUiThread(()->{Uri uri=Uri.parse(raw);if(!"https".equals(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null)return;
                 try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(Exception e){new AlertDialog.Builder(MainActivity.this).setMessage("No browser is available.").setPositiveButton("OK",null).show();}});

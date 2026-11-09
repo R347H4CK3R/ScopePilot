@@ -16,4 +16,4 @@ Development preview, not a store-ready autonomous bounty product.
 Local SDK/GUI execution may be restricted in the build workspace. Use CI logs as evidence of compilation, not proof of installation or usability. Unsigned iOS archives need a compatible signing process. Debug APKs need a trusted distribution route; debug signing keys are not a stable public release identity.
 
 ## Future product work
-Authenticated opt-in public-program feeds; read-only policy-change tracking; research queue with provenance; explicit permitted-method configuration; approved, scoped remote worker for non-destructive checks; vetted evidence storage; human review and submission handoff. These are not shipped features.
+Authenticated platform integrations; read-only policy-change tracking; research queue with provenance; explicit permitted-method configuration; approved, scoped remote worker for non-destructive checks; vetted evidence storage; human review and submission handoff. These are not shipped features. Public community snapshots and richer offline evidence analysis are implemented in 0.2, but their native networking and file-picker behavior still need device testing.

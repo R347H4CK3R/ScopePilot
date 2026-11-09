@@ -1,8 +1,8 @@
 from pathlib import Path
 import shutil
 root=Path(__file__).resolve().parents[1]
-core=(root/'web/core.mjs').read_text().replace('export function ', 'function ')
-app='\n'.join((root/'web/app.mjs').read_text().splitlines()[1:])
+core='\n'.join((root/('web/'+name)).read_text().replace('export async function ', 'async function ').replace('export function ', 'function ').replace('export const ', 'const ') for name in ['core.mjs','discovery.mjs','evidence.mjs'])
+app='\n'.join(line for line in (root/'web/app.mjs').read_text().splitlines() if not line.startswith('import '))
 (root/'web/bundle.js').write_text("'use strict';\n(()=>{\n"+core+'\n'+app+'\n})();\n')
 for target in [root/'android/app/src/main/assets/web',root/'ios/ScopePilot/Web']:
     target.mkdir(parents=True,exist_ok=True)
