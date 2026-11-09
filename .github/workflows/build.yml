@@ -74,8 +74,8 @@ jobs:
               root = 'Payload/ScopePilot.app/'
               info = plistlib.loads(archive.read(root + 'Info.plist'))
               assert info['CFBundleIdentifier'] == 'app.scopepilot.mobile'
-              assert info['CFBundleShortVersionString'] == '0.2.0'
-              assert info['CFBundleVersion'] == '2'
+              assert info['CFBundleShortVersionString'] == '0.3.0'
+              assert info['CFBundleVersion'] == '3'
               assert info['CFBundleSupportedPlatforms'] == ['iPhoneOS']
               assert float(info['MinimumOSVersion']) >= 16.0
               executable = archive.read(root + info['CFBundleExecutable'])
@@ -92,7 +92,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="scopepilot-ios-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          gh release create "$TAG" ScopePilot-unsigned.ipa ScopePilot-build-manifest.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --prerelease --title "ScopePilot iOS 0.2.0 candidate ${GITHUB_RUN_ID}" --notes "Unsigned iPhone build from commit $GITHUB_SHA. Private draft for verification and compatible signing/container use. Not an App Store release or a physical-device validation claim."
+          gh release create "$TAG" ScopePilot-unsigned.ipa ScopePilot-build-manifest.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --prerelease --title "ScopePilot iOS 0.3.0 candidate ${GITHUB_RUN_ID}" --notes "Unsigned iPhone build from commit $GITHUB_SHA. Private draft for verification and compatible signing/container use. Not an App Store release or a physical-device validation claim."
   ios-simulator:
     runs-on: macos-15
     needs: web
@@ -117,3 +117,4 @@ jobs:
           PY
       - name: Verify native iPhone launch and bundled navigation
         run: xcodebuild test -project ios/ScopePilot.xcodeproj -scheme ScopePilot -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -resultBundlePath simulator-results CODE_SIGNING_ALLOWED=NO
+

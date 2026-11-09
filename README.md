@@ -78,3 +78,8 @@ See [Privacy](docs/PRIVACY.md), [Security](SECURITY.md), and [Release checklist]
 Discovery is powered by an unofficial MIT-licensed community snapshot; see [third-party notices](docs/THIRD_PARTY_NOTICES.md). Retrieved scope may be stale or incomplete. Refresh downloads up to 25 MB without credentials and keeps candidate data in session memory. Review current official program terms, all exclusions, and eligibility yourself.
 
 No external security testing is performed by the build or tests. Test fixtures use reserved example domains without contacting them.
+
+
+## 0.3: Offline HAR evidence import
+
+On Research, choose an authorized program and select a HAR capture from Files. ScopePilot reads up to 5 MB / 100 captured exchanges locally, never replays requests, and skips out-of-scope or query-bearing URLs. Preview the resulting evidence drafts, then explicitly save or discard them. Request/response bodies, custom headers and credential values are not retained. Review retained URLs and security-policy headers for sensitive data. Capture timestamps are user-supplied, not independently verified. This is evidence triage, not confirmed vulnerability discovery or an automated submission.
