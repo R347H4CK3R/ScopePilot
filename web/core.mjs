@@ -18,6 +18,7 @@ export function inScope(target,p){
 export function redact(value){return String(value).replace(/^[ \t]*(authorization|proxy-authorization|cookie|set-cookie|x-api-key)\s*:.*$/gim,'$1: [REDACTED]');}
 export function analyze(url,headers,p){
  if(!inScope(url,p))throw new Error('Authorization missing, expired, or target outside approved scope. HTTPS on port 443 only; remove query strings and credentials.');
+ if(typeof headers==='string'&&new TextEncoder().encode(headers).length>64000)throw new Error('Headers exceed 64 KB.');
  if(typeof headers!=='string'||headers.length>64000||!/^HTTP\/(?:1\.[01]|2|3)\s+[1-5]\d\d(?:\s|$)/.test(headers))throw new Error('Paste response headers beginning with a valid HTTP status line.');
  if(/\r?\n\r?\n\s*\S/.test(headers))throw new Error('Headers only. Remove the response body and any personal data.');
  const parsed=new Map();for(const line of headers.split(/\r?\n/).slice(1)){const i=line.indexOf(':');if(i>0)parsed.set(line.slice(0,i).trim().toLowerCase(),line.slice(i+1).trim());else if(line.trim())throw new Error('Malformed header line.');}
@@ -31,4 +32,10 @@ export function importPrograms(text){
  if(typeof text!=='string'||text.length>200000)throw new Error('Program file exceeds 200 KB.');
  const items=JSON.parse(text);if(!Array.isArray(items)||items.length>100)throw new Error('Expected an array of up to 100 programs.');
  const ids=new Set(); return items.map((p,i)=>{if(!p||typeof p!=='object')throw new Error('Invalid program entry.');const clean={id:String(p.id||`import-${i}`),name:p.name,policy:p.policy,hosts:p.hosts,excluded:p.excluded||[],expires:p.expires,authorized:true};if(ids.has(clean.id))throw new Error('Duplicate program IDs.');ids.add(clean.id);const errors=validateProgram(clean);if(errors.length)throw new Error(errors.join(' '));return {...clean,authorized:false};});
+}
+export function restoreWorkspace(raw){
+ if(raw===null)return {programs:[],reports:[]};
+ const s=JSON.parse(raw),programValid=p=>p&&typeof p.id==='string'&&typeof p.authorized==='boolean'&&validateProgram({...p,authorized:true,expires:'2099-01-01'}).length===0&&typeof p.expires==='string';
+ if(!s||!Array.isArray(s.programs)||!Array.isArray(s.reports)||s.programs.some(p=>!programValid(p))||s.reports.some(r=>!r||typeof r.id!=='string'||!programValid(r.program)||typeof r.url!=='string'||typeof r.headers!=='string'||typeof r.notes!=='string'||!Number.isFinite(Date.parse(r.created))||!Array.isArray(r.findings)||r.findings.some(f=>!f||['title','severity','status','guidance'].some(k=>typeof f[k]!=='string'))))throw new Error('Saved workspace has invalid entries.');
+ return s;
 }
