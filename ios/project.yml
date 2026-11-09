@@ -29,3 +29,24 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: 'UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight'
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: 'UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight'
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  ScopePilotUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ScopePilotUITests
+    dependencies:
+      - target: ScopePilot
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.scopepilot.mobile.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: ScopePilot
+schemes:
+  ScopePilot:
+    build:
+      targets:
+        ScopePilot: all
+        ScopePilotUITests: [test]
+    test:
+      targets:
+        - ScopePilotUITests

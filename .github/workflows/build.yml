@@ -49,6 +49,8 @@ jobs:
           name: ScopePilot-Android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
   ios:
+    permissions:
+      contents: write
     runs-on: macos-15
     needs: web
     steps:
@@ -61,7 +63,57 @@ jobs:
           mkdir -p package/Payload
           cp -R build/Build/Products/Release-iphoneos/ScopePilot.app package/Payload/
           cd package && zip -qr ../ScopePilot-unsigned.ipa Payload
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ScopePilot-iOS-unsigned
-          path: ScopePilot-unsigned.ipa
+      - name: Verify unsigned iPhone package
+        run: |
+          python3 - <<'PYVERIFY'
+          import hashlib, json, os, plistlib, zipfile
+          from pathlib import Path
+          ipa = Path('ScopePilot-unsigned.ipa')
+          with zipfile.ZipFile(ipa) as archive:
+              assert archive.testzip() is None
+              root = 'Payload/ScopePilot.app/'
+              info = plistlib.loads(archive.read(root + 'Info.plist'))
+              assert info['CFBundleIdentifier'] == 'app.scopepilot.mobile'
+              assert info['CFBundleShortVersionString'] == '0.2.0'
+              assert info['CFBundleVersion'] == '2'
+              assert info['CFBundleSupportedPlatforms'] == ['iPhoneOS']
+              assert float(info['MinimumOSVersion']) >= 16.0
+              executable = archive.read(root + info['CFBundleExecutable'])
+              assert executable[:4] in [b'\xcf\xfa\xed\xfe', b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca']
+              for name in ['index.html', 'style.css', 'bundle.js']:
+                  assert archive.read(root + 'Web/' + name) == Path('web', name).read_bytes()
+          manifest = {'commit': os.environ['GITHUB_SHA'], 'ipa': ipa.name, 'sha256': hashlib.sha256(ipa.read_bytes()).hexdigest(), 'bytes': ipa.stat().st_size, 'bundleIdentifier': info['CFBundleIdentifier'], 'version': info['CFBundleShortVersionString'], 'build': info['CFBundleVersion'], 'minimumOSVersion': info['MinimumOSVersion'], 'signing': 'unsigned; requires compatible signing or container', 'checks': ['ZIP integrity', 'device platform', 'bundle identity', 'Mach-O executable', 'bundled source byte equality']}
+          Path('ScopePilot-build-manifest.json').write_text(json.dumps(manifest, indent=2))
+          print(json.dumps(manifest, indent=2))
+          PYVERIFY
+          file build/Build/Products/Release-iphoneos/ScopePilot.app/ScopePilot
+      - name: Save iPhone files in a private draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="scopepilot-ios-build-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          gh release create "$TAG" ScopePilot-unsigned.ipa ScopePilot-build-manifest.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --draft --prerelease --title "ScopePilot iOS 0.2.0 candidate ${GITHUB_RUN_ID}" --notes "Unsigned iPhone build from commit $GITHUB_SHA. Private draft for verification and compatible signing/container use. Not an App Store release or a physical-device validation claim."
+  ios-simulator:
+    runs-on: macos-15
+    needs: web
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - run: python3 scripts/make_icon.py
+      - run: cd ios && xcodegen generate
+      - name: Select an available iPhone simulator
+        run: |
+          xcrun simctl list devices available -j > simulator-devices.json
+          python3 - <<'PY'
+          import json, os
+          devices = json.load(open('simulator-devices.json'))['devices']
+          candidates = [d for runtime, group in devices.items() if '.iOS-' in runtime for d in group if d.get('isAvailable') and d['name'].startswith('iPhone')]
+          if not candidates:
+              raise SystemExit('No available iPhone simulator is installed on this runner.')
+          chosen = candidates[0]
+          with open(os.environ['GITHUB_ENV'], 'a') as env:
+              env.write('SIMULATOR_ID=' + chosen['udid'] + '\n')
+          print('Selected:', chosen['name'], chosen['udid'])
+          PY
+      - name: Verify native iPhone launch and bundled navigation
+        run: xcodebuild test -project ios/ScopePilot.xcodeproj -scheme ScopePilot -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -resultBundlePath simulator-results CODE_SIGNING_ALLOWED=NO
