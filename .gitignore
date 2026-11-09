@@ -1,0 +1,12 @@
+node_modules/
+.DS_Store
+build/
+.gradle/
+android/local.properties
+*.apk
+*.ipa
+*.keystore
+*.jks
+ios/*.xcodeproj/
+
+ios/ScopePilot/Assets.xcassets/AppIcon.appiconset/AppIcon.png
