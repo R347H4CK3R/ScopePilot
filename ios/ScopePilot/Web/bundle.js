@@ -41,7 +41,6 @@ function restoreWorkspace(raw){
  if(!s||!Array.isArray(s.programs)||!Array.isArray(s.reports)||s.programs.some(p=>!programValid(p))||s.reports.some(r=>!r||typeof r.id!=='string'||!programValid(r.program)||typeof r.url!=='string'||typeof r.headers!=='string'||typeof r.notes!=='string'||!Number.isFinite(Date.parse(r.created))||!Array.isArray(r.findings)||r.findings.some(f=>!f||['title','severity','status','guidance'].some(k=>typeof f[k]!=='string'))))throw new Error('Saved workspace has invalid entries.');
  return s;
 }
-
 // Public community-maintained directory snapshots, not official authorization feeds.
 const FEEDS=Object.freeze({hackerone:'https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/hackerone_data.json',bugcrowd:'https://raw.githubusercontent.com/arkadiyt/bounty-targets-data/main/data/bugcrowd_data.json'});
 const discoveryHost=/^(?:\*\.)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/;
@@ -83,7 +82,6 @@ async function fetchDiscovery(source,fetcher=fetch){
   return normalizeDiscovery(JSON.parse(text),source);
  }catch(error){if(error.name==='AbortError')throw new Error('Directory request timed out. No program scope was changed.');throw error;}finally{clearTimeout(timer);}
 }
-
 // Offline observations only. The caller must check scope and authorization first.
 const TOKEN=/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 const MDN='https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/';
@@ -154,7 +152,6 @@ function analyzeEvidence({url,headers,requestHeaders=''}={}){
  if(authenticated&&caching.includes('public')&&!caching.includes('no-store')&&!caching.includes('private'))add('cache-auth-public','Authenticated request has explicit public caching','Supplied request contains Authorization or Cookie; response explicitly includes Cache-Control: public without private/no-store. Credential values omitted.','Credentials do not prove this content is personalized or cached. Shared-cache exposure requires sensitive content and a reproducible cache-key or isolation failure.','Using only owned test accounts and approved environments, review whether content is personalized, cache keys vary correctly, and responses can cross account boundaries. Review Vary and CDN configuration. Never retrieve another person’s data.','Cache-Control');
  return out;
 }
-
 const HAR_RESPONSE_HEADERS=new Set(['content-type','content-security-policy','strict-transport-security','x-content-type-options','set-cookie','access-control-allow-origin','access-control-allow-credentials','cache-control','vary']);
 const HAR_REQUEST_HEADERS=new Set(['origin','authorization','cookie']);
 const HAR_HEADER_TOKEN=/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
