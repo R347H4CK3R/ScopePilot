@@ -1,0 +1,16 @@
+# Manual-only: verify free minutes and keep billing disabled before starting.
+workflows:
+  scopepilot-verified-mobile:
+    name: ScopePilot verified unsigned mobile candidate
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: '26.2'
+      node: '22'
+      java: '17'
+    scripts:
+      - name: Run existing checks and verify candidate artifacts
+        script: bash scripts/codemagic-build.sh
+    artifacts:
+      - cm-output/verified/*
+      - cm-output/diagnostics/**
