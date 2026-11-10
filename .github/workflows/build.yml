@@ -47,7 +47,7 @@ jobs:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug lint
       # Same-repository builds use Releases storage, not the Actions artifact allowance.
-      # Fork and Dependabot events keep their read-only artifact path.
+      # Fork and Dependabot events keep the original artifact path.
       - name: Preserve verified output in a private draft release
         if: ${{ github.actor != 'dependabot[bot]' && (github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]')) }}
         env:
