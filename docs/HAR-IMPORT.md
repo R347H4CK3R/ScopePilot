@@ -9,7 +9,7 @@ ScopePilot 0.3 adds offline HAR analysis to the iPhone and Android workspace.
 3. Export that capture as HAR. Prefer the browser's sanitized export option. Check the file for private data before importing it.
 4. In Research, select the correct program and choose the HAR file from Files. Maximum: 5 MB and 100 exchanges. Nothing is uploaded or replayed.
 5. Review the prepared drafts and skip counts. Expand each report to check its retained URL, response policies, observations, and context. Save reviewed drafts or discard the preview.
-6. Add actual reproduction steps and impact through your reporting workflow. Export individual drafts from Reports, review for private data again, and submit yourself through the official program channel.
+6. In Reports, choose **Edit research notes** to add reproduction steps using your own test accounts, demonstrated impact, and suggested remediation. Keep useful capture provenance. **Save notes** redacts known credential headers and updates only the notes; it does not verify findings or renew authorization. **Cancel edit** leaves the saved report unchanged. Export individual drafts, review for private data again, and submit yourself through the official program channel.
 
 ## What analysis can and cannot establish
 
@@ -22,3 +22,9 @@ URL paths and policy-header values can still contain private information. Automa
 ## Release verification
 
 Unit coverage: scope/exclusions, authorization expiry, mixed-origin captures, bounds, malformed headers, privacy filtering, duplicate handling and changed evidence. Browser coverage: preview, discard, save and reload persistence, in addition to the existing manual-evidence workflow. Native file-picker behavior and physical-device compatibility must be checked separately; simulator launch/navigation does not establish them.
+
+## Editing saved research notes
+
+Manual and HAR-imported drafts both support note editing. Input and redacted notes are limited to 32,000 characters, and the complete exported report must remain within 180 KB. Captured headers, findings, original timestamp and program snapshot are preserved. Historical notes can be edited after a program is removed or expires; that never authorizes new testing.
+
+Unsaved edits remain only in session memory while you navigate inside the app. Save before closing or reloading. A storage failure leaves the prior saved report intact and the new text in the editor for retrying or copying. Ordinary prose, URLs and custom secrets still need manual privacy review.
