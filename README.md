@@ -11,7 +11,7 @@ ScopePilot is a local-first bug-bounty research workspace for **Android and iOS*
 - Manual program entry and JSON import. Discovery never grants permission; path-specific or unsupported restrictions force manual scope entry.
 - Exact-host and wildcard scope validation, excluded hosts, authorization confirmation, and expiry gates.
 - Offline response-header inspection for CSP, HSTS, MIME protection, cookie attributes, credentialed CORS context, and authenticated-response public caching. Optional supplied request headers enable contextual checks. All results include evidence, limitations, safe validation guidance, and references; nothing is labeled a confirmed vulnerability.
-- Cookie and authorization-header redaction; local report history and native share sheets.
+- Cookie and authorization-header redaction; local report history, editable research notes, and native share sheets. Add reproduction steps, demonstrated impact and remediation to existing drafts without changing captured evidence.
 - Separate Android application and iOS application, using bundled first-party interface assets. No hosted website is required.
 
 ## What is not implemented
@@ -60,7 +60,7 @@ Select your development team and run on an authorized device. CI also builds an 
 
 ## Verification
 - `npm test`: deterministic scope, parsing, redaction, and import tests.
-- `tests/ui.mjs`: Playwright create/analyze/report/persistence/rejection/navigation/mobile-layout flow. Install Playwright 1.51.1 and its Chromium first. Run a server on port 8137, then `node tests/ui.mjs`.
+- `tests/ui.mjs`: Playwright create/analyze/report/persistence/rejection/navigation/mobile-layout flow, including saved-note editing, cancel, export, privacy and storage-failure recovery. Install Playwright 1.51.1 and its Chromium first. Run a server on port 8137, then `node tests/ui.mjs`.
 - GitHub Actions: unit/UI checks, Android assemble + lint, iOS device compilation, build artifacts.
 - Native device smoke checks, signing, release channels, and store review remain separate release gates.
 

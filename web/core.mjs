@@ -28,6 +28,22 @@ export function analyze(url,headers,p){
 export function report({program,url,headers,findings,notes='',requestHeaders='',created=new Date().toISOString()}){
  return `# ScopePilot • Draft research report\n\nProgram: ${program.name}\nPolicy: ${program.policy}\nTarget: ${url}\nAuthorization expires: ${program.expires}${program.provenance?'\nDiscovery source: '+program.provenance.sourceURL+'\nSnapshot retrieved: '+program.provenance.retrievedAt:''}\nGenerated: ${created}\n\n## Status\nNo vulnerability is confirmed by this automated analysis. Human validation and program-rule review are required. No submission has been sent.\n\n## Observations\n${findings.length?findings.map(f=>`- ${f.title} (${f.severity}; ${f.status})\n  ${f.guidance}${f.evidence?'\n  Evidence: '+f.evidence:''}${f.confidence?'\n  Confidence: '+f.confidence:''}${f.validation?'\n  Validation: '+f.validation:''}${Array.isArray(f.references)?'\n  References: '+f.references.join(', '):''}`).join('\n'):'No missing-header observations. This is not a security clearance.'}\n\n## Researcher notes\n${redact(notes)||'Not yet provided. Add reproducible steps, actual impact, and remediation before submission.'}\n\n## Supplied request context\n${redact(requestHeaders)||'Not supplied.'}\n\n## Supplied response headers\n${redact(headers)}\n\nReview all content for secrets and personal data before sharing.\n`;
 }
+export function reviseReportNotes(entry,notes){
+ if(typeof notes!=='string')throw new Error('Researcher notes must be text.');
+ if(notes.length>32000)throw new Error('Researcher notes exceed 32,000 characters.');
+ const revised={...entry,notes:redact(notes)};
+ if(revised.notes.length>32000)throw new Error('Redacted researcher notes exceed 32,000 characters. Shorten the notes.');
+ if(new TextEncoder().encode(report(revised)).length>180000)throw new Error('Draft exceeds 180 KB. Shorten your notes before saving.');
+ return revised;
+}
+export function saveReportNotes(workspace,id,notes,persist){
+ const entry=workspace.reports.find(r=>r.id===id);
+ if(!entry)throw new Error('This report no longer exists.');
+ const revised=reviseReportNotes(entry,notes);
+ const next={...workspace,reports:workspace.reports.map(r=>r===entry?revised:r)};
+ persist(next);
+ return next;
+}
 export function importPrograms(text){
  if(typeof text!=='string'||text.length>200000)throw new Error('Program file exceeds 200 KB.');
  const items=JSON.parse(text);if(!Array.isArray(items)||items.length>100)throw new Error('Expected an array of up to 100 programs.');

@@ -28,3 +28,6 @@ await page.getByRole('button',{name:'Overview',exact:true}).click();await page.s
 await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'/tmp/scopepilot-desktop.png',fullPage:true});assert.equal(errors.length,0,errors.join('\n'));
 await browser.close();console.log('PASS: discover, scope adoption gating, request evidence redaction, create, analyze, redact, persistence, scope rejection, draft navigation, modal close, mobile overflow, desktop render, no JS errors.');
 
+
+// Run local report-review coverage under every existing browser verification job.
+await import('./report-review-ui.mjs');

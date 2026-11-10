@@ -1,0 +1,67 @@
+import {createRequire} from 'node:module';
+import {readFile} from 'node:fs/promises';
+import assert from 'node:assert/strict';
+const require=createRequire(import.meta.url);
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||undefined,args:['--no-sandbox']});
+try{
+ const context=await browser.newContext({viewport:{width:390,height:844}}),page=await context.newPage(),errors=[],external=[];
+ page.setDefaultTimeout(5000);page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',route=>{const url=new URL(route.request().url());if(url.hostname!=='127.0.0.1'){external.push(url.origin);return route.abort();}return route.continue();});
+ await page.goto(process.env.TEST_URL||'http://127.0.0.1:8137');
+ await page.getByRole('button',{name:'Add a program',exact:true}).click();
+ await page.getByLabel('Program name').fill('Owned-account laboratory');await page.getByLabel('Official policy URL').fill('https://example.com/security');await page.getByLabel('In-scope hosts, one per line').fill('example.com');await page.getByLabel('Authorization expires').fill('2099-01-01');await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Save program'}).click();
+ await page.getByRole('button',{name:'Start research'}).click();
+ const capture=JSON.stringify({log:{entries:[{startedDateTime:'2026-11-01T12:00:00Z',request:{url:'https://example.com/owned-account',method:'GET',headers:[]},response:{status:200,headers:[{name:'Content-Type',value:'text/html'}]}}]}});
+ await page.locator('#har-file').setInputFiles({name:'owned-capture.har',mimeType:'application/json',buffer:Buffer.from(capture)});
+ await page.getByRole('button',{name:'Save reviewed drafts'}).click();
+ await page.getByRole('button',{name:'Reports',exact:true}).click();
+ const saved=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('scopepilot-v1')));
+ const original=(await saved()).reports[0];assert.match(original.notes,/Capture timestamp \(unverified\)/);
+ await page.getByRole('button',{name:'Edit research notes',exact:true}).click();
+ const notes=()=>page.getByLabel('Researcher notes', {exact:true});
+ assert.equal(await notes().inputValue(),original.notes);
+ await notes().fill('Unsaved review');
+ await page.getByRole('button',{name:'Edit research notes',exact:true}).click();
+ assert.equal(await notes().inputValue(),'Unsaved review');
+ await page.getByRole('button',{name:'Programs',exact:true}).click();
+ await page.getByRole('button',{name:'Reports',exact:true}).click();assert.equal(await notes().inputValue(),'Unsaved review');
+ assert.deepEqual((await saved()).reports[0],original);
+ await page.getByRole('button',{name:'Cancel edit',exact:true}).click();assert.equal(await notes().count(),0);
+ assert.deepEqual((await saved()).reports[0],original);
+ await page.getByRole('button',{name:'Edit research notes',exact:true}).click();
+ const revised='Reproduction: my own authorized test account.\nActual impact: not established.\nRemediation: review configuration.\nAuthorization: Bearer NOTESECRET\n<img src=x onerror=alert(1)>';
+ await notes().fill(revised);await page.getByRole('button',{name:'Save notes',exact:true}).click();
+ assert.equal(await notes().count(),0);
+ const updated=(await saved()).reports[0];assert.doesNotMatch(updated.notes,/NOTESECRET/);assert.match(updated.notes,/Authorization: \[REDACTED\]/);
+ assert.deepEqual({...updated,notes:original.notes},original);
+ await page.locator('summary').click();assert.match(await page.locator('.report-preview').textContent(),/Actual impact: not established/);assert.equal(await page.locator('.report-preview img').count(),0);
+ assert.match(await page.locator('.report-preview').textContent(),/No vulnerability is confirmed/);
+ const downloadPromise=page.waitForEvent('download');await page.getByRole('button',{name:'Export draft'}).click();const download=await downloadPromise;
+ const exported=await readFile(await download.path(),'utf8');assert.match(exported,/Remediation: review configuration/);assert.doesNotMatch(exported,/NOTESECRET/);
+ await page.reload();await page.getByRole('button',{name:'Reports',exact:true}).click();await page.getByRole('button',{name:'Edit research notes',exact:true}).click();assert.equal(await notes().inputValue(),updated.notes);
+ // Storage errors must preserve the old report and editable new notes, even after navigation.
+ await page.evaluate(()=>{window.originalSetItem=Storage.prototype.setItem;Storage.prototype.setItem=()=>{throw new DOMException('Quota exceeded','QuotaExceededError');};});
+ await notes().fill('Keep this unsaved recovery text.');await page.getByRole('button',{name:'Save notes',exact:true}).click();
+ assert.match(await page.locator('[data-notes-error]').textContent(),/not saved/i);assert.equal(await notes().inputValue(),'Keep this unsaved recovery text.');assert.deepEqual((await saved()).reports[0],updated);
+ assert.match(await page.locator('.report-preview').textContent(),/Actual impact: not established/);
+ assert.doesNotMatch(await page.locator('.report-preview').textContent(),/Keep this unsaved recovery text/);
+ const failedSaveDownload=page.waitForEvent('download');await page.getByRole('button',{name:'Export draft'}).click();
+ const previousExport=await readFile(await (await failedSaveDownload).path(),'utf8');
+ assert.match(previousExport,/Actual impact: not established/);assert.doesNotMatch(previousExport,/Keep this unsaved recovery text/);
+ await page.getByRole('button',{name:'Overview',exact:true}).click();await page.getByRole('button',{name:'Reports',exact:true}).click();assert.equal(await notes().inputValue(),'Keep this unsaved recovery text.');
+ await page.evaluate(()=>{Storage.prototype.setItem=window.originalSetItem;});await page.getByRole('button',{name:'Save notes',exact:true}).click();assert.equal((await saved()).reports[0].notes,'Keep this unsaved recovery text.');
+ // Program removal does not prevent editing historical evidence or grant new authorization.
+ await page.getByRole('button',{name:'Programs',exact:true}).click();page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Remove',exact:true}).click();
+ await page.getByRole('button',{name:'Reports',exact:true}).click();await page.getByRole('button',{name:'Edit research notes',exact:true}).click();await notes().fill('Historical notes only.');await page.getByRole('button',{name:'Save notes',exact:true}).click();assert.equal((await saved()).programs.length,0);assert.equal((await saved()).reports[0].program.expires,'2099-01-01');
+ // Empty notes can be saved intentionally; oversized pasted text cannot bypass the core check.
+ await page.getByRole('button',{name:'Edit research notes',exact:true}).click();await notes().fill('');await page.getByRole('button',{name:'Save notes',exact:true}).click();assert.equal((await saved()).reports[0].notes,'');
+ await page.getByRole('button',{name:'Edit research notes',exact:true}).click();await notes().evaluate(el=>{el.value='x'.repeat(32001);el.dispatchEvent(new Event('input',{bubbles:true}));});await page.getByRole('button',{name:'Save notes',exact:true}).click();assert.match(await page.locator('[data-notes-error]').textContent(),/32,000/);assert.equal((await saved()).reports[0].notes,'');
+ await notes().fill('Screenshot of local report-note review.');
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+ await page.screenshot({path:process.env.SCREENSHOT||'/tmp/scopepilot-report-review-mobile.png',fullPage:true});
+ await page.getByRole('button',{name:'Cancel edit',exact:true}).click();
+ page.once('dialog',d=>d.accept());await page.getByRole('button',{name:'Delete local draft',exact:true}).click();assert.equal((await saved()).reports.length,0);
+ assert.deepEqual(errors,[]);assert.deepEqual(external,[]);
+ console.log('PASS: HAR notes edit, redaction, immutable evidence, cancel, repeated opens, navigation recovery, persistence, export, HTML safety, storage failure/retry, removed program, empty/oversize notes, deletion, mobile layout, no external requests.');
+}finally{await browser.close();}

@@ -1,9 +1,10 @@
 import {analyzeHar} from './har.mjs';
 import {FEEDS,fetchDiscovery,prepareCandidate} from './discovery.mjs';
 import {analyzeEvidence} from './evidence.mjs';
-import {validateProgram,inScope,analyze,report,redact,importPrograms,restoreWorkspace} from './core.mjs';
+import {validateProgram,inScope,analyze,report,redact,importPrograms,restoreWorkspace,saveReportNotes} from './core.mjs';
 const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let candidates=[],discoveryLoading=false,discoveryError='',discoverySource='bugcrowd',discoveryQuery='',discoveryPage=0,programProvenance=null;
+const reportEdits=new Map();
 let page='overview', state={programs:[],reports:[]}, researchDraft={program:'',url:'',headers:'',requestHeaders:'',notes:''}, storageError='';
 try{state=restoreWorkspace(localStorage.getItem('scopepilot-v1'));}catch{storageError='Saved workspace could not be read. Original data is preserved; saving is disabled for this session. Recover the app data before clearing storage.';}
 const content=$('#content'), notify=text=>{$('#notice').textContent=text;clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('#notice').textContent='',6000);};
@@ -25,10 +26,37 @@ function render(){
  if($('#add'))$('#add').onclick=()=>openProgram();
  if($('#research-form')){wireHarImport();const update=()=>{const p=state.programs.find(p=>p.id===$('#research-program').value);const errors=validateProgram(p);$('#scope-status').textContent=errors.length?errors.join(' '):`Scope: ${p.hosts.join(', ')}. Exclusions: ${p.excluded.join(', ')||'none recorded'}. Authorization expires ${p.expires}.`;};update();$('#research-program').onchange=update;$('#research-form').onsubmit=e=>{e.preventDefault();captureDraft();try{const program=state.programs.find(p=>p.id===researchDraft.program);const findings=[...analyze(researchDraft.url,researchDraft.headers,program),...analyzeEvidence({url:researchDraft.url,headers:researchDraft.headers,requestHeaders:researchDraft.requestHeaders})];const entry={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),created:new Date().toISOString(),program:{...program},url:researchDraft.url,headers:redact(researchDraft.headers),notes:redact(researchDraft.notes),requestHeaders:redact(researchDraft.requestHeaders),findings};if(new TextEncoder().encode(report(entry)).length>180000)throw new Error('Draft exceeds 180 KB. Shorten your notes or headers before saving.');state.reports.unshift(entry);const saved=save();researchDraft.headers=entry.headers;researchDraft.requestHeaders=entry.requestHeaders;$('#research-headers').value=entry.headers;$('#research-request').value=entry.requestHeaders;$('#analysis-result').innerHTML=`<article class="card"><span class="tag">${saved?'DRAFT SAVED':'SESSION ONLY · NOT SAVED'}</span><h2>${findings.length} evidence observations</h2><p>No vulnerability is confirmed. Review applicability and document actual impact before any submission.</p><button class="primary" id="view-report">Review report →</button></article>`;$('#view-report').onclick=()=>go('reports');if(saved)notify('Analysis complete. A redacted draft was saved locally.');}catch(error){notify(error.message);}};}
  }else{
- content.innerHTML=heading('MAKE YOUR WORK REPRODUCIBLE','Evidence, ready to explain.','Review every draft, remove sensitive data, and submit through the program’s approved channel yourself.')+(state.reports.length?state.reports.map(r=>`<article class="card"><div class="row between"><div><span class="tag warn">DRAFT · NOT SUBMITTED</span><h3>${esc(r.program.name)}</h3><p>${esc(r.url)} · ${new Date(r.created).toLocaleDateString()}</p></div><button class="secondary" data-export="${esc(r.id)}">Export draft ↗</button></div><details><summary>Read report · ${r.findings.length} observations</summary><pre class="report-preview">${esc(report(r))}</pre></details><button class="delete" data-remove-report="${esc(r.id)}">Delete local draft</button></article>`).join(''):`<div class="empty"><h3>Good reports begin with real evidence.</h3><p>Your analysis drafts will appear here. Nothing is automatically sent to a bounty program.</p><button class="primary" id="start">Start an analysis →</button></div>`);
- if($('#start'))$('#start').onclick=()=>go('research');document.querySelectorAll('[data-export]').forEach(b=>b.onclick=()=>exportReport(state.reports.find(r=>r.id===b.dataset.export)));document.querySelectorAll('[data-remove-report]').forEach(b=>b.onclick=()=>{if(confirm('Delete this local draft? Export it first if you need a copy.')){state.reports=state.reports.filter(r=>r.id!==b.dataset.removeReport);save();render();}});
+ content.innerHTML=heading('MAKE YOUR WORK REPRODUCIBLE','Evidence, ready to explain.','Review every draft, remove sensitive data, and submit through the program’s approved channel yourself.')+(state.reports.length?state.reports.map(r=>`<article class="card"><div class="row between"><div><span class="tag warn">DRAFT · NOT SUBMITTED</span><h3>${esc(r.program.name)}</h3><p>${esc(r.url)} · ${new Date(r.created).toLocaleDateString()}</p></div><button class="secondary" data-export="${esc(r.id)}">Export draft ↗</button></div><details><summary>Read report · ${r.findings.length} observations</summary><pre class="report-preview">${esc(report(r))}</pre></details><button class="secondary" data-edit-report="${esc(r.id)}">Edit research notes</button>${reportEditor(r)}<button class="delete" data-remove-report="${esc(r.id)}">Delete local draft</button></article>`).join(''):`<div class="empty"><h3>Good reports begin with real evidence.</h3><p>Your analysis drafts will appear here. Nothing is automatically sent to a bounty program.</p><button class="primary" id="start">Start an analysis →</button></div>`);
+ wireReportEditors();if($('#start'))$('#start').onclick=()=>go('research');document.querySelectorAll('[data-export]').forEach(b=>b.onclick=()=>exportReport(state.reports.find(r=>r.id===b.dataset.export)));document.querySelectorAll('[data-remove-report]').forEach(b=>b.onclick=()=>{if(confirm('Delete this local draft? Export it first if you need a copy.')){state.reports=state.reports.filter(r=>r.id!==b.dataset.removeReport);reportEdits.delete(b.dataset.removeReport);save();render();}});
  }
  document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openExternal(b.dataset.open));
+}
+function reportEditor(entry){
+ const draft=reportEdits.get(entry.id);if(!draft)return '';
+ return `<form data-notes-form="${esc(entry.id)}"><label>Researcher notes<textarea name="notes" maxlength="32000" placeholder="Reproduction steps using owned accounts, demonstrated impact, and suggested remediation.">${esc(draft.notes)}</textarea></label><p class="muted">Keep capture provenance when useful. These are your notes, not verified findings. Known credential headers are redacted on save; remove secrets in prose, URLs and custom fields yourself.</p><p class="muted">Unsaved edits stay in this session while you navigate. Save before reloading or closing the app.</p><p class="error" data-notes-error role="alert">${esc(draft.error)}</p><div class="row"><button class="primary" type="submit">Save notes</button><button class="secondary" type="button" data-cancel-notes>Cancel edit</button></div></form>`;
+}
+function wireReportEditors(){
+ document.querySelectorAll('[data-edit-report]').forEach(button=>button.onclick=()=>{
+  const entry=state.reports.find(r=>r.id===button.dataset.editReport);if(!entry)return;
+  if(!reportEdits.has(entry.id))reportEdits.set(entry.id,{notes:entry.notes,error:''});
+  render();
+ });
+ document.querySelectorAll('[data-notes-form]').forEach(form=>{
+  const id=form.dataset.notesForm,field=form.elements.notes;
+  field.oninput=()=>{reportEdits.get(id).notes=field.value;};
+  form.querySelector('[data-cancel-notes]').onclick=()=>{reportEdits.delete(id);render();};
+  form.onsubmit=event=>{
+   event.preventDefault();const draft=reportEdits.get(id);draft.notes=field.value;
+   try{
+    if(storageError)throw new Error(storageError);
+    state=saveReportNotes(state,id,field.value,next=>localStorage.setItem('scopepilot-v1',JSON.stringify(next)));
+    reportEdits.delete(id);render();notify('Research notes saved locally. Review the updated draft before exporting.');
+   }catch(error){
+    draft.error=`Notes not saved. ${error.message} Your edits remain here; copy them before reloading or closing the app.`;
+    form.querySelector('[data-notes-error]').textContent=draft.error;
+   }
+  };
+ });
 }
 function captureDraft(){if($('#research-form'))researchDraft={program:$('#research-program').value,url:$('#research-url').value,headers:$('#research-headers').value,requestHeaders:$('#research-request').value,notes:$('#research-notes').value};}
 function wirePrograms(){document.querySelectorAll('[data-research]').forEach(b=>b.onclick=()=>{researchDraft.program=b.dataset.research;go('research');});document.querySelectorAll('[data-policy]').forEach(b=>b.onclick=()=>openExternal(state.programs.find(p=>p.id===b.dataset.policy).policy));document.querySelectorAll('[data-authorize]').forEach(b=>b.onclick=()=>{const p=state.programs.find(p=>p.id===b.dataset.authorize);if(confirm(`Have you reviewed ${p.policy} and confirmed your permission for ${p.hosts.join(', ')} with the recorded exclusions?`)){const errors=validateProgram({...p,authorized:true});if(errors.length)return notify(errors.join(' '));p.authorized=true;save();render();}});document.querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{if(confirm('Remove this program? Existing report drafts will be kept.')){state.programs=state.programs.filter(p=>p.id!==b.dataset.delete);save();render();}});}
